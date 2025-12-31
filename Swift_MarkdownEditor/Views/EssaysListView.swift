@@ -10,44 +10,33 @@ import SwiftUI
 /// Essays 列表视图 - 时间轴风格，完整展示模式
 struct EssaysListView: View {
     @StateObject private var viewModel = EssayViewModel()
-    @State private var selectedImage: UIImage?
-    @State private var showImageViewer = false
     
     var body: some View {
-        ZStack {
-            NavigationStack {
-                ZStack {
-                    // 纯黑背景
-                    Color.black
-                        .ignoresSafeArea()
-                    
-                    if viewModel.isLoading {
-                        loadingView
-                    } else if let error = viewModel.errorMessage {
-                        errorView(message: error)
-                    } else if viewModel.essays.isEmpty {
-                        emptyView
-                    } else {
-                        essaysTimeline
-                    }
+        NavigationStack {
+            ZStack {
+                // 纯黑背景
+                Color.black
+                    .ignoresSafeArea()
+                
+                if viewModel.isLoading {
+                    loadingView
+                } else if let error = viewModel.errorMessage {
+                    errorView(message: error)
+                } else if viewModel.essays.isEmpty {
+                    emptyView
+                } else {
+                    essaysTimeline
                 }
-                .navigationTitle("Essays")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbarBackground(Color.black, for: .navigationBar)
-                .toolbarBackground(.visible, for: .navigationBar)
-                .toolbarColorScheme(.dark, for: .navigationBar)
             }
-            .preferredColorScheme(.dark)
-            .task {
-                await viewModel.loadEssays()
-            }
-            
-            // 图片查看器 Overlay
-            if showImageViewer, let image = selectedImage {
-                ImageViewerOverlay(image: image, isPresented: $showImageViewer)
-                    .transition(.opacity)
-                    .zIndex(100)
-            }
+            .navigationTitle("Essays")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color.black, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+        }
+        .preferredColorScheme(.dark)
+        .task {
+            await viewModel.loadEssays()
         }
     }
     
@@ -60,13 +49,7 @@ struct EssaysListView: View {
                     EssayRowView(
                         essay: essay,
                         isLast: index == viewModel.essays.count - 1
-                    ) { image in
-                        // 点击图片时显示查看器
-                        selectedImage = image
-                        withAnimation(.easeIn(duration: 0.2)) {
-                            showImageViewer = true
-                        }
-                    }
+                    )
                 }
             }
             .padding(.horizontal, 16)

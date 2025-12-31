@@ -29,8 +29,6 @@ class ImageCache {
 /// 带缓存的网络图片视图
 struct CachedAsyncImage: View {
     let url: URL?
-    var onTap: ((UIImage) -> Void)? = nil
-    
     @State private var image: UIImage?
     @State private var isLoading = true
     
@@ -42,9 +40,6 @@ struct CachedAsyncImage: View {
                     .aspectRatio(contentMode: .fit)
                     .frame(maxWidth: .infinity)
                     .cornerRadius(8)
-                    .onTapGesture {
-                        onTap?(image)
-                    }
             } else if isLoading {
                 ProgressView()
                     .frame(maxWidth: .infinity)
@@ -102,7 +97,6 @@ struct CachedAsyncImage: View {
 struct EssayRowView: View {
     let essay: Essay
     let isLast: Bool
-    var onImageTap: ((UIImage) -> Void)? = nil
     
     // 时间轴样式常量
     private let timelineColor = Color(hex: "#6B7280")
@@ -168,9 +162,7 @@ struct EssayRowView: View {
             
             // 完整尺寸图片（显示所有图片）
             ForEach(essay.allImageURLs, id: \.absoluteString) { imageURL in
-                CachedAsyncImage(url: imageURL) { image in
-                    onImageTap?(image)
-                }
+                CachedAsyncImage(url: imageURL)
             }
         }
         .padding(.bottom, 48) // 每篇之间的间隔

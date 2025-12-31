@@ -5,7 +5,7 @@
 //  Created by Ryuichi on 2025/12/26.
 //
 
-import Foundation
+@preconcurrency import Foundation
 
 /// GitHub API 服务
 /// 对应 PWA 中的 github-service.js

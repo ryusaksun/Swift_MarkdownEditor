@@ -25,6 +25,9 @@ actor EssayService {
     /// 缓存有效期（5分钟）
     private let cacheValidity: TimeInterval = 5 * 60
     
+    /// 正在加载
+    private var isLoading = false
+    
     private init() {}
     
     // MARK: - Public API
@@ -41,51 +44,45 @@ actor EssayService {
             return cachedEssays
         }
         
-        do {
-            // 获取文件列表
-            let files = try await fetchFileList()
-            
-            // 只保留 .md 文件
-            let mdFiles = files.filter { $0.name.hasSuffix(".md") }
-            
-            // 串行获取 Essay 内容（避免并发取消问题）
-            var essays: [Essay] = []
-            for file in mdFiles {
-                // 检查是否被取消
-                if Task.isCancelled {
-                    // 如果被取消但有缓存，返回缓存
-                    if !cachedEssays.isEmpty {
-                        return cachedEssays
-                    }
-                    throw CancellationError()
-                }
-                
-                if let essay = try? await fetchEssayContent(fileName: file.name) {
-                    essays.append(essay)
-                }
-            }
-            
-            // 按日期倒序排列
-            let sortedEssays = essays.sorted { $0.pubDate > $1.pubDate }
-            
-            // 更新缓存
-            cachedEssays = sortedEssays
-            cacheTimestamp = Date()
-            
-            return sortedEssays
-        } catch is CancellationError {
-            // 如果被取消但有缓存，返回缓存
-            if !cachedEssays.isEmpty {
-                return cachedEssays
-            }
-            throw EssayError.networkError("请求被取消")
-        } catch {
-            // 如果其他错误但有缓存，返回缓存
-            if !cachedEssays.isEmpty && forceRefresh {
-                return cachedEssays
-            }
-            throw error
+        // 如果正在加载，返回缓存
+        if isLoading && !cachedEssays.isEmpty {
+            return cachedEssays
         }
+        
+        isLoading = true
+        defer { isLoading = false }
+        
+        // 获取文件列表
+        let files = try await fetchFileList()
+        
+        // 只保留 .md 文件
+        let mdFiles = files.filter { $0.name.hasSuffix(".md") }
+        
+        // 并发获取所有 Essay 内容
+        let essays = await withTaskGroup(of: Essay?.self) { group in
+            for file in mdFiles {
+                group.addTask {
+                    try? await self.fetchEssayContent(fileName: file.name)
+                }
+            }
+            
+            var results: [Essay] = []
+            for await essay in group {
+                if let essay = essay {
+                    results.append(essay)
+                }
+            }
+            return results
+        }
+        
+        // 按日期倒序排列
+        let sortedEssays = essays.sorted { $0.pubDate > $1.pubDate }
+        
+        // 更新缓存
+        cachedEssays = sortedEssays
+        cacheTimestamp = Date()
+        
+        return sortedEssays
     }
     
     /// 获取单个 Essay 的完整内容

@@ -20,6 +20,26 @@ private enum EssayRegex {
     static let imageURL = try! NSRegularExpression(pattern: #"!\[.*?\]\((.*?)\)"#)
 }
 
+// MARK: - 日期格式化器缓存（避免重复创建）
+
+private enum EssayFormatter {
+    /// 标准日期格式化器
+    static let date: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        formatter.locale = Locale(identifier: "zh_CN")
+        return formatter
+    }()
+    
+    /// 相对时间格式化器
+    static let relative: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.unitsStyle = .short
+        return formatter
+    }()
+}
+
 /// Essay 数据模型
 /// 对应博客仓库中 src/content/essays/ 目录下的 Markdown 文件
 struct Essay: Identifiable, Codable, Hashable {
@@ -96,18 +116,12 @@ struct Essay: Identifiable, Codable, Hashable {
     
     /// 格式化的日期字符串
     var formattedDate: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HH:mm"
-        formatter.locale = Locale(identifier: "zh_CN")
-        return formatter.string(from: pubDate)
+        EssayFormatter.date.string(from: pubDate)
     }
     
     /// 相对时间描述（如 "3天前"）
     var relativeDate: String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.unitsStyle = .short
-        return formatter.localizedString(for: pubDate, relativeTo: Date())
+        EssayFormatter.relative.localizedString(for: pubDate, relativeTo: Date())
     }
 }
 

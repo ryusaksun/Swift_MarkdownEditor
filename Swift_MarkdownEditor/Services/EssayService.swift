@@ -22,8 +22,8 @@ actor EssayService {
     /// 缓存时间戳
     private var cacheTimestamp: Date?
     
-    /// 缓存有效期（5分钟）
-    private let cacheValidity: TimeInterval = 5 * 60
+    /// 缓存有效期
+    private let cacheValidity: TimeInterval = AppConfig.essayCacheValidity
     
     /// 正在加载
     private var isLoading = false
@@ -211,9 +211,8 @@ actor EssayService {
             decoder.dateDecodingStrategy = .iso8601
             let cache = try decoder.decode(LocalCache.self, from: data)
             
-            // 检查本地缓存是否过期（24小时）
-            let localCacheValidity: TimeInterval = 24 * 60 * 60
-            if Date().timeIntervalSince(cache.timestamp) < localCacheValidity {
+            // 检查本地缓存是否过期
+            if Date().timeIntervalSince(cache.timestamp) < AppConfig.essayLocalCacheValidity {
                 cachedEssays = cache.essays.compactMap { $0.toEssay() }
                 cacheTimestamp = cache.timestamp
                 print("📂 从本地加载缓存，共 \(cachedEssays.count) 条")

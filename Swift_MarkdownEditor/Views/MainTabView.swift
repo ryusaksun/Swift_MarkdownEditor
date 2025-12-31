@@ -9,7 +9,7 @@ import SwiftUI
 
 /// 主 TabBar 视图
 struct MainTabView: View {
-    @StateObject private var themeManager = ThemeManager.shared
+    @ObservedObject private var themeManager = ThemeManager.shared
     @State private var selectedTab = 0
     
     var body: some View {

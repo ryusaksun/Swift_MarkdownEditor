@@ -90,8 +90,8 @@ actor ImageService {
     
     // MARK: - 图片上传
     
-    /// 压缩阈值：10MB
-    private let compressionThreshold = 10 * 1024 * 1024
+    /// 压缩阈值
+    private let compressionThreshold = AppConfig.imageCompressionThreshold
     
     /// 上传图片
     /// - Parameters:

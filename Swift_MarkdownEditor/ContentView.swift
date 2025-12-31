@@ -11,7 +11,7 @@ import PhotosUI
 /// 主视图 - 匹配 PWA 布局
 struct ContentView: View {
     @StateObject private var viewModel = EditorViewModel()
-    @StateObject private var themeManager = ThemeManager.shared
+    @ObservedObject private var themeManager = ThemeManager.shared
     @State private var showImagePicker = false
     @State private var showCamera = false
     @State private var selectedPhotoItems: [PhotosPickerItem] = []

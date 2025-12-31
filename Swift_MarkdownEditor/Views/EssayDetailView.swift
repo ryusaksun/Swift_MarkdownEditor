@@ -183,6 +183,7 @@ struct EssayMarkdownWebView: UIViewRepresentable {
     NavigationStack {
         EssayDetailView(essay: Essay(
             fileName: "test.md",
+            sha: nil,
             title: "测试随笔",
             pubDate: Date(),
             content: "# 这是标题\n\n这是正文内容，包含一些 **粗体** 和 *斜体* 文字。\n\n![图片](https://example.com/image.jpg)",

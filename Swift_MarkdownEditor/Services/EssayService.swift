@@ -36,7 +36,11 @@ actor EssayService {
     
     private init() {
         // 启动时加载本地缓存
-        loadLocalCache()
+        if let cache = EssayService.loadFromDisk() {
+            self.cachedEssays = cache.essays
+            self.cacheTimestamp = cache.timestamp
+            print("📂 从本地加载缓存，共 \(cache.essays.count) 条")
+        }
     }
     
     // MARK: - Public API
@@ -72,20 +76,21 @@ actor EssayService {
             print("📄 发现 \(mdFiles.count) 个 Essay 文件")
             
             // 并发获取所有 Essay 内容
-            let essays = await withTaskGroup(of: Essay?.self) { group in
+            var essays: [Essay] = []
+            
+            try await withThrowingTaskGroup(of: Essay?.self) { group in
                 for file in mdFiles {
                     group.addTask {
-                        try? await self.fetchEssayContent(fileName: file.name)
+                        // 忽略 parse 错误的 essay
+                        return try? await self.fetchEssayContent(fileName: file.name)
                     }
                 }
                 
-                var results: [Essay] = []
-                for await essay in group {
+                for try await essay in group {
                     if let essay = essay {
-                        results.append(essay)
+                        essays.append(essay)
                     }
                 }
-                return results
             }
             
             // 按日期倒序排列
@@ -168,6 +173,53 @@ actor EssayService {
         print("🗑️ 缓存已清除")
     }
     
+    // MARK: - 编辑功能
+    
+    /// 获取 Essay 文件的 SHA（用于更新操作）
+    /// - Parameter fileName: 文件名
+    /// - Returns: 文件 SHA
+    func getEssaySha(fileName: String) async throws -> String {
+        let endpoint = "/repos/\(AppConfig.githubOwner)/\(AppConfig.githubRepo)/contents/\(essaysPath)/\(fileName)?ref=\(AppConfig.githubBranch)"
+        
+        let response: GHFileResponse = try await GitHubService.shared.request(endpoint: endpoint)
+        return response.sha
+    }
+    
+    /// 更新已有的 Essay
+    /// - Parameters:
+    ///   - essay: 要更新的 Essay
+    ///   - newContent: 新的完整内容（包含 frontmatter）
+    /// - Returns: 更新是否成功
+    func updateEssay(essay: Essay, newContent: String) async throws -> Bool {
+        // 获取当前文件的 SHA
+        let sha: String
+        if let existingSha = essay.sha {
+            sha = existingSha
+        } else {
+            sha = try await getEssaySha(fileName: essay.fileName)
+        }
+        
+        // 构建文件路径
+        let filePath = "\(essaysPath)/\(essay.fileName)"
+        
+        // 生成提交消息
+        let message = "Update essay: \(essay.title ?? essay.fileName)"
+        
+        // 调用 GitHub 服务更新文件
+        _ = try await GitHubService.shared.createOrUpdateFile(
+            path: filePath,
+            content: newContent,
+            message: message,
+            sha: sha
+        )
+        
+        // 清除缓存以便下次刷新获取最新数据
+        clearCache()
+        
+        print("✅ Essay 更新成功: \(essay.fileName)")
+        return true
+    }
+    
     // MARK: - Local Cache
     
     /// 本地缓存数据结构
@@ -198,11 +250,12 @@ actor EssayService {
         }
     }
     
-    /// 加载本地缓存
-    private func loadLocalCache() {
-        guard let url = localCacheURL,
+    /// 从磁盘加载缓存（静态方法，避免 Actor 隔离问题）
+    private static func loadFromDisk() -> (essays: [Essay], timestamp: Date)? {
+        guard let url = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("essays_cache.json"),
               FileManager.default.fileExists(atPath: url.path) else {
-            return
+            return nil
         }
         
         do {
@@ -213,13 +266,12 @@ actor EssayService {
             
             // 检查本地缓存是否过期
             if Date().timeIntervalSince(cache.timestamp) < AppConfig.essayLocalCacheValidity {
-                cachedEssays = cache.essays.compactMap { $0.toEssay() }
-                cacheTimestamp = cache.timestamp
-                print("📂 从本地加载缓存，共 \(cachedEssays.count) 条")
+                return (cache.essays.compactMap { $0.toEssay() }, cache.timestamp)
             }
         } catch {
             print("⚠️ 加载本地缓存失败: \(error.localizedDescription)")
         }
+        return nil
     }
     
     /// 保存到本地缓存

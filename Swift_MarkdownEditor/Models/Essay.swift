@@ -50,6 +50,9 @@ struct Essay: Identifiable, Codable, Hashable {
     /// 完整文件名（如 "2025-12-27-124830.md"）
     let fileName: String
     
+    /// 文件 SHA（用于 GitHub 更新操作）
+    var sha: String?
+    
     /// 标题（可选，从 frontmatter 或内容中提取）
     let title: String?
     
@@ -150,8 +153,9 @@ nonisolated enum EssayParser {
     /// - Parameters:
     ///   - rawContent: 包含 frontmatter 的完整 Markdown 内容
     ///   - fileName: 文件名
+    ///   - sha: 文件 SHA（可选，用于更新操作）
     /// - Returns: 解析后的 Essay 对象，解析失败返回 nil
-    static func parse(rawContent: String, fileName: String) -> Essay? {
+    static func parse(rawContent: String, fileName: String, sha: String? = nil) -> Essay? {
         // 分离 frontmatter 和正文
         let (frontmatter, content) = separateFrontmatter(rawContent)
         
@@ -165,6 +169,7 @@ nonisolated enum EssayParser {
         
         return Essay(
             fileName: fileName,
+            sha: sha,
             title: title,
             pubDate: pubDate,
             content: content,

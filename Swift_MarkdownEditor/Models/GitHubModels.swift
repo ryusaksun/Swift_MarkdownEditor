@@ -11,6 +11,15 @@ import Foundation
 
 struct GHErrorResponse: Decodable, Sendable {
     let message: String
+    
+    enum CodingKeys: String, CodingKey {
+        case message
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        message = try container.decode(String.self, forKey: .message)
+    }
 }
 
 struct GHFileResponse: Decodable, Sendable {
@@ -22,6 +31,15 @@ struct GHFileResponse: Decodable, Sendable {
     
     enum CodingKeys: String, CodingKey {
         case name, path, sha, content, encoding
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decode(String.self, forKey: .name)
+        path = try container.decode(String.self, forKey: .path)
+        sha = try container.decode(String.self, forKey: .sha)
+        content = try container.decode(String.self, forKey: .content)
+        encoding = try container.decode(String.self, forKey: .encoding)
     }
 }
 
@@ -38,6 +56,23 @@ struct GHCreateFileResponse: Decodable, Sendable {
             case name, path, sha
             case htmlUrl = "html_url"
         }
+        
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            name = try container.decode(String.self, forKey: .name)
+            path = try container.decode(String.self, forKey: .path)
+            sha = try container.decode(String.self, forKey: .sha)
+            htmlUrl = try container.decode(String.self, forKey: .htmlUrl)
+        }
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.content = try container.decode(FileInfo.self, forKey: .content)
+    }
+    
+    enum CodingKeys: String, CodingKey {
+        case content
     }
 }
 

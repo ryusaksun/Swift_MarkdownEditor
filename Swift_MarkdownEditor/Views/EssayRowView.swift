@@ -97,6 +97,7 @@ struct CachedAsyncImage: View {
 struct EssayRowView: View {
     let essay: Essay
     let isLast: Bool
+    var onEdit: (() -> Void)? = nil
     
     // 时间轴样式常量
     private let timelineColor = Color(hex: "#6B7280")
@@ -111,6 +112,17 @@ struct EssayRowView: View {
             
             // 右侧内容区
             contentArea
+        }
+        .contentShape(Rectangle()) // 确保整行可点击
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            if let onEdit = onEdit {
+                Button {
+                    onEdit()
+                } label: {
+                    Label("编辑", systemImage: "pencil")
+                }
+                .tint(.blue)
+            }
         }
     }
     
@@ -215,6 +227,7 @@ extension Essay {
             EssayRowView(
                 essay: Essay(
                     fileName: "test1.md",
+                    sha: nil,
                     title: "记录这一刻",
                     pubDate: Date(),
                     content: "![image](https://cdn.jsdelivr.net/gh/SUNSIR007/picx-images-hosting@master/images/2025/12/img.jpg)",
@@ -226,6 +239,7 @@ extension Essay {
             EssayRowView(
                 essay: Essay(
                     fileName: "test2.md",
+                    sha: nil,
                     title: nil,
                     pubDate: Date().addingTimeInterval(-86400),
                     content: "音乐鉴赏测试完了，终于可以静下心来好好听这些古典乐了",

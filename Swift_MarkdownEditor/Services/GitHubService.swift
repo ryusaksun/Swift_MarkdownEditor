@@ -340,7 +340,7 @@ actor GitHubService {
         return ImageUploadResult(
             success: true,
             path: filePath,
-            url: cdnUrl,
+            url: cdnUrl,    
             sha: response.content.sha
         )
     }

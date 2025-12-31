@@ -161,14 +161,14 @@ extension Color {
     
     // MARK: - 主题色（不变）
     
-    /// 主题色 --primary-color: #23233B
-    static let primaryBlue = Color(hex: "#23233B")
+    /// 主题色 - 克莱因蓝 International Klein Blue #002FA7
+    static let primaryBlue = Color(hex: "#002FA7")
     
     /// 渐变起始色
-    static let primaryGradientStart = Color(hex: "#23233B")
+    static let primaryGradientStart = Color(hex: "#002FA7")
     
     /// 渐变结束色
-    static let primaryGradientEnd = Color(hex: "#1a1a2e")
+    static let primaryGradientEnd = Color(hex: "#001f6a")
     
     // MARK: - 状态颜色（不变）
     

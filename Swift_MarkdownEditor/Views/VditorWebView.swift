@@ -20,6 +20,24 @@ struct VditorWebView: UIViewRepresentable {
     @Binding var content: String
     
     func makeUIView(context: Context) -> WKWebView {
+        // 尝试使用预加载的 WebView
+        if let preloadedWebView = WebViewPreloader.shared.getPreloadedWebView() {
+            // 添加消息处理器
+            preloadedWebView.configuration.userContentController.add(context.coordinator, name: "editorReady")
+            preloadedWebView.configuration.userContentController.add(context.coordinator, name: "contentChanged")
+            preloadedWebView.navigationDelegate = context.coordinator
+            
+            context.coordinator.webView = preloadedWebView
+            VditorManager.shared.webView = preloadedWebView
+            VditorManager.shared.coordinator = context.coordinator
+            
+            print("✅ 使用预加载的 WebView")
+            return preloadedWebView
+        }
+        
+        // 回退：创建新的 WebView
+        print("⚠️ 预加载不可用，创建新的 WebView")
+        
         let configuration = WKWebViewConfiguration()
         
         // 添加消息处理器

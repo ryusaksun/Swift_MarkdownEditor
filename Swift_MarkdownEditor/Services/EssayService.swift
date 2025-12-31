@@ -19,6 +19,9 @@ actor EssayService {
     /// 内存缓存的 Essays 列表
     private var cachedEssays: [Essay] = []
     
+    /// SHA 缓存（文件名 -> SHA hash）用于增量更新
+    private var shaCache = [String: String]()
+    
     /// 缓存时间戳
     private var cacheTimestamp: Date?
     
@@ -75,23 +78,35 @@ actor EssayService {
             let mdFiles = files.filter { $0.name.hasSuffix(".md") }
             print("📄 发现 \(mdFiles.count) 个 Essay 文件")
             
-            // 并发获取所有 Essay 内容
-            var essays: [Essay] = []
+            // 增量更新：对比 SHA，只拉取有变化的文件
+            let (filesToFetch, unchangedFiles) = determineFilesToFetch(mdFiles)
+            print("📊 增量更新：\(filesToFetch.count) 个需更新，\(unchangedFiles.count) 个无变化")
             
-            try await withThrowingTaskGroup(of: Essay?.self) { group in
-                for file in mdFiles {
-                    group.addTask {
-                        // 忽略 parse 错误的 essay
-                        return try? await self.fetchEssayContent(fileName: file.name)
+            // 复用未变化的缓存 Essays
+            var essays: [Essay] = cachedEssays.filter { essay in
+                unchangedFiles.contains(essay.fileName)
+            }
+            
+            // 并发获取有变化的 Essay 内容
+            if !filesToFetch.isEmpty {
+                try await withThrowingTaskGroup(of: Essay?.self) { group in
+                    for file in filesToFetch {
+                        group.addTask {
+                            // 忽略 parse 错误的 essay
+                            return try? await self.fetchEssayContent(fileName: file.name)
+                        }
                     }
-                }
-                
-                for try await essay in group {
-                    if let essay = essay {
-                        essays.append(essay)
+                    
+                    for try await essay in group {
+                        if let essay = essay {
+                            essays.append(essay)
+                        }
                     }
                 }
             }
+            
+            // 更新 SHA 缓存
+            updateSHACache(mdFiles)
             
             // 按日期倒序排列
             let sortedEssays = essays.sorted { $0.pubDate > $1.pubDate }
@@ -171,53 +186,6 @@ actor EssayService {
             try? FileManager.default.removeItem(at: url)
         }
         print("🗑️ 缓存已清除")
-    }
-    
-    // MARK: - 编辑功能
-    
-    /// 获取 Essay 文件的 SHA（用于更新操作）
-    /// - Parameter fileName: 文件名
-    /// - Returns: 文件 SHA
-    func getEssaySha(fileName: String) async throws -> String {
-        let endpoint = "/repos/\(AppConfig.githubOwner)/\(AppConfig.githubRepo)/contents/\(essaysPath)/\(fileName)?ref=\(AppConfig.githubBranch)"
-        
-        let response: GHFileResponse = try await GitHubService.shared.request(endpoint: endpoint)
-        return response.sha
-    }
-    
-    /// 更新已有的 Essay
-    /// - Parameters:
-    ///   - essay: 要更新的 Essay
-    ///   - newContent: 新的完整内容（包含 frontmatter）
-    /// - Returns: 更新是否成功
-    func updateEssay(essay: Essay, newContent: String) async throws -> Bool {
-        // 获取当前文件的 SHA
-        let sha: String
-        if let existingSha = essay.sha {
-            sha = existingSha
-        } else {
-            sha = try await getEssaySha(fileName: essay.fileName)
-        }
-        
-        // 构建文件路径
-        let filePath = "\(essaysPath)/\(essay.fileName)"
-        
-        // 生成提交消息
-        let message = "Update essay: \(essay.title ?? essay.fileName)"
-        
-        // 调用 GitHub 服务更新文件
-        _ = try await GitHubService.shared.createOrUpdateFile(
-            path: filePath,
-            content: newContent,
-            message: message,
-            sha: sha
-        )
-        
-        // 清除缓存以便下次刷新获取最新数据
-        clearCache()
-        
-        print("✅ Essay 更新成功: \(essay.fileName)")
-        return true
     }
     
     // MARK: - Local Cache
@@ -311,6 +279,37 @@ actor EssayService {
             default:
                 throw EssayError.networkError(error.localizedDescription)
             }
+        }
+    }
+    
+    // MARK: - 增量更新
+    
+    /// 对比 SHA，确定需要重新获取的文件
+    /// - Parameter files: 远程文件列表
+    /// - Returns: (需要获取的文件, 未变化的文件名)
+    private func determineFilesToFetch(_ files: [GitHubFileInfo]) -> (toFetch: [GitHubFileInfo], unchanged: Set<String>) {
+        var toFetch: [GitHubFileInfo] = []
+        var unchanged: Set<String> = []
+        
+        for file in files {
+            if let cachedSHA = shaCache[file.name], cachedSHA == file.sha {
+                // SHA 相同，无需重新获取
+                unchanged.insert(file.name)
+            } else {
+                // SHA 不同或不存在，需要获取
+                toFetch.append(file)
+            }
+        }
+        
+        return (toFetch, unchanged)
+    }
+    
+    /// 更新 SHA 缓存
+    /// - Parameter files: 远程文件列表
+    private func updateSHACache(_ files: [GitHubFileInfo]) {
+        shaCache.removeAll()
+        for file in files {
+            shaCache[file.name] = file.sha
         }
     }
 }

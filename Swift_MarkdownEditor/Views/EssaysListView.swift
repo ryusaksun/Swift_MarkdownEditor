@@ -10,7 +10,6 @@ import SwiftUI
 /// Essays 列表视图 - 时间轴风格，完整展示模式
 struct EssaysListView: View {
     @StateObject private var viewModel = EssayViewModel()
-    @State private var essayToEdit: Essay? = nil
     
     var body: some View {
         NavigationStack {
@@ -34,21 +33,10 @@ struct EssaysListView: View {
             .toolbarBackground(Color.black, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
-            .navigationDestination(item: $essayToEdit) { essay in
-                EssayEditView(essay: essay)
-            }
         }
         .preferredColorScheme(.dark)
         .task {
             await viewModel.loadEssays()
-        }
-        .onChange(of: essayToEdit) { oldValue, newValue in
-            // 编辑页面返回后刷新列表
-            if oldValue != nil && newValue == nil {
-                Task {
-                    await viewModel.loadEssays(forceRefresh: true)
-                }
-            }
         }
     }
     
@@ -60,10 +48,7 @@ struct EssaysListView: View {
                 ForEach(Array(viewModel.essays.enumerated()), id: \.element.id) { index, essay in
                     EssayRowView(
                         essay: essay,
-                        isLast: index == viewModel.essays.count - 1,
-                        onEdit: {
-                            essayToEdit = essay
-                        }
+                        isLast: index == viewModel.essays.count - 1
                     )
                 }
             }

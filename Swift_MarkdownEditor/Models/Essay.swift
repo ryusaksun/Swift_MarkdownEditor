@@ -7,6 +7,19 @@
 
 import Foundation
 
+// MARK: - 静态正则表达式缓存（避免重复编译）
+
+private enum EssayRegex {
+    /// 匹配 Markdown 图片语法 ![alt](url)
+    static let image = try! NSRegularExpression(pattern: #"!\[.*?\]\(.*?\)"#)
+    
+    /// 匹配 Markdown 链接语法 [text](url)
+    static let link = try! NSRegularExpression(pattern: #"\[(.*?)\]\(.*?\)"#)
+    
+    /// 提取图片 URL
+    static let imageURL = try! NSRegularExpression(pattern: #"!\[.*?\]\((.*?)\)"#)
+}
+
 /// Essay 数据模型
 /// 对应博客仓库中 src/content/essays/ 目录下的 Markdown 文件
 struct Essay: Identifiable, Codable, Hashable {
@@ -33,23 +46,19 @@ struct Essay: Identifiable, Codable, Hashable {
     var preview: String {
         var cleanContent = content
         
-        // 使用正则移除 Markdown 图片语法 ![alt](url)
-        if let regex = try? NSRegularExpression(pattern: #"!\[.*?\]\(.*?\)"#) {
-            cleanContent = regex.stringByReplacingMatches(
-                in: cleanContent,
-                range: NSRange(cleanContent.startIndex..., in: cleanContent),
-                withTemplate: ""
-            )
-        }
+        // 使用缓存的正则移除 Markdown 图片语法 ![alt](url)
+        cleanContent = EssayRegex.image.stringByReplacingMatches(
+            in: cleanContent,
+            range: NSRange(cleanContent.startIndex..., in: cleanContent),
+            withTemplate: ""
+        )
         
-        // 移除 Markdown 链接语法 [text](url)，保留 text
-        if let regex = try? NSRegularExpression(pattern: #"\[(.*?)\]\(.*?\)"#) {
-            cleanContent = regex.stringByReplacingMatches(
-                in: cleanContent,
-                range: NSRange(cleanContent.startIndex..., in: cleanContent),
-                withTemplate: "$1"
-            )
-        }
+        // 使用缓存的正则移除链接语法 [text](url)，保留 text
+        cleanContent = EssayRegex.link.stringByReplacingMatches(
+            in: cleanContent,
+            range: NSRange(cleanContent.startIndex..., in: cleanContent),
+            withTemplate: "$1"
+        )
         
         // 移除多余空白
         cleanContent = cleanContent
@@ -73,9 +82,7 @@ struct Essay: Identifiable, Codable, Hashable {
     
     /// 提取内容中的第一张图片 URL（用于预览）
     var firstImageURL: URL? {
-        let pattern = #"!\[.*?\]\((.*?)\)"#
-        guard let regex = try? NSRegularExpression(pattern: pattern),
-              let match = regex.firstMatch(in: content, range: NSRange(content.startIndex..., in: content)),
+        guard let match = EssayRegex.imageURL.firstMatch(in: content, range: NSRange(content.startIndex..., in: content)),
               let range = Range(match.range(at: 1), in: content) else {
             return nil
         }

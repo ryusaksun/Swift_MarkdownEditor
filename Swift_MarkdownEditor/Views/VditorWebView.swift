@@ -162,6 +162,8 @@ struct VditorWebView: UIViewRepresentable {
 }
 
 /// 全局 Vditor 管理器
+/// 使用 @MainActor 确保所有 UI 操作在主线程执行
+@MainActor
 class VditorManager {
     static let shared = VditorManager()
     
@@ -179,7 +181,6 @@ class VditorManager {
     }
     
     /// 主动获取 WebView 中的最新内容
-    @MainActor
     func getContent() async -> String {
         guard let webView = webView else { return "" }
         

@@ -293,11 +293,11 @@ enum GitHubError: Error, LocalizedError {
 
 // MARK: - 响应模型
 
-struct GitHubErrorResponse: Decodable {
+struct GitHubErrorResponse: Decodable, Sendable {
     let message: String
 }
 
-struct GitHubFileResponse: Decodable {
+struct GitHubFileResponse: Decodable, Sendable {
     let name: String
     let path: String
     let sha: String
@@ -309,10 +309,10 @@ struct GitHubFileResponse: Decodable {
     }
 }
 
-struct CreateFileResponse: Decodable {
+struct CreateFileResponse: Decodable, Sendable {
     let content: FileInfo
     
-    struct FileInfo: Decodable {
+    struct FileInfo: Decodable, Sendable {
         let name: String
         let path: String
         let sha: String

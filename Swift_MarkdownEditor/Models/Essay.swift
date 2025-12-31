@@ -130,7 +130,7 @@ enum EssayParser {
     ///   - rawContent: 包含 frontmatter 的完整 Markdown 内容
     ///   - fileName: 文件名
     /// - Returns: 解析后的 Essay 对象，解析失败返回 nil
-    static func parse(rawContent: String, fileName: String) -> Essay? {
+    nonisolated static func parse(rawContent: String, fileName: String) -> Essay? {
         // 分离 frontmatter 和正文
         let (frontmatter, content) = separateFrontmatter(rawContent)
         

@@ -134,38 +134,26 @@ actor EssayService {
     /// - Parameter fileName: 文件名
     /// - Returns: Essay 对象
     func fetchEssayContent(fileName: String) async throws -> Essay {
-        let urlString = "\(AppConfig.githubAPIBaseURL)/repos/\(AppConfig.githubOwner)/\(AppConfig.githubRepo)/contents/\(essaysPath)/\(fileName)?ref=\(AppConfig.githubBranch)"
+        let endpoint = "/repos/\(AppConfig.githubOwner)/\(AppConfig.githubRepo)/contents/\(essaysPath)/\(fileName)?ref=\(AppConfig.githubBranch)"
         
-        guard let url = URL(string: urlString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? urlString) else {
-            throw EssayError.invalidURL
+        do {
+            let content = try await GitHubService.shared.fetchRawContent(endpoint: endpoint)
+            
+            guard let essay = EssayParser.parse(rawContent: content, fileName: fileName) else {
+                throw EssayError.parseError("无法解析 Essay")
+            }
+            
+            return essay
+        } catch let error as GitHubError {
+            switch error {
+            case .notConfigured:
+                throw EssayError.networkError("GitHub 未配置")
+            case .apiError(let code, let message):
+                throw EssayError.networkError("HTTP \(code): \(message)")
+            default:
+                throw EssayError.networkError(error.localizedDescription)
+            }
         }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        // 使用 token 格式而非 Bearer
-        request.setValue("token \(AppConfig.githubToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/vnd.github.v3.raw", forHTTPHeaderField: "Accept")
-        request.timeoutInterval = 30
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw EssayError.networkError("无效的响应")
-        }
-        
-        guard httpResponse.statusCode == 200 else {
-            throw EssayError.networkError("HTTP \(httpResponse.statusCode)")
-        }
-        
-        guard let content = String(data: data, encoding: .utf8) else {
-            throw EssayError.parseError("无法解码内容")
-        }
-        
-        guard let essay = EssayParser.parse(rawContent: content, fileName: fileName) else {
-            throw EssayError.parseError("无法解析 Essay")
-        }
-        
-        return essay
     }
     
     /// 清除缓存
@@ -258,33 +246,21 @@ actor EssayService {
     
     /// 获取 essays 目录下的文件列表
     private func fetchFileList() async throws -> [GitHubFileInfo] {
-        let urlString = "\(AppConfig.githubAPIBaseURL)/repos/\(AppConfig.githubOwner)/\(AppConfig.githubRepo)/contents/\(essaysPath)?ref=\(AppConfig.githubBranch)"
+        let endpoint = "/repos/\(AppConfig.githubOwner)/\(AppConfig.githubRepo)/contents/\(essaysPath)?ref=\(AppConfig.githubBranch)"
         
-        guard let url = URL(string: urlString) else {
-            throw EssayError.invalidURL
+        do {
+            let files: [GitHubFileInfo] = try await GitHubService.shared.request(endpoint: endpoint)
+            return files
+        } catch let error as GitHubError {
+            switch error {
+            case .notConfigured:
+                throw EssayError.networkError("GitHub 未配置")
+            case .apiError(let code, let message):
+                throw EssayError.networkError("HTTP \(code): \(message)")
+            default:
+                throw EssayError.networkError(error.localizedDescription)
+            }
         }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        // 使用 token 格式而非 Bearer
-        request.setValue("token \(AppConfig.githubToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/vnd.github.v3+json", forHTTPHeaderField: "Accept")
-        request.timeoutInterval = 30
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw EssayError.networkError("无效的响应")
-        }
-        
-        guard httpResponse.statusCode == 200 else {
-            throw EssayError.networkError("HTTP \(httpResponse.statusCode)")
-        }
-        
-        let decoder = JSONDecoder()
-        let files = try decoder.decode([GitHubFileInfo].self, from: data)
-        
-        return files
     }
 }
 

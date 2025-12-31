@@ -267,13 +267,8 @@ struct SettingsView: View {
     // MARK: - Token 操作
     
     private func loadToken() {
-        // 优先从 Keychain 读取
-        if let savedToken = KeychainHelper.get(key: "github_token"), !savedToken.isEmpty {
-            githubToken = savedToken
-        } else {
-            // 否则使用硬编码的 Token
-            githubToken = AppConfig.githubToken
-        }
+        // 从 Keychain 读取已保存的 Token
+        githubToken = KeychainHelper.get(key: "github_token") ?? ""
     }
     
     private func saveToken() {
@@ -311,7 +306,7 @@ struct SettingsView: View {
         
         Task {
             do {
-                let username = try await verifyGitHubToken(githubToken)
+                let username = try await GitHubService.shared.verifyToken(githubToken)
                 await MainActor.run {
                     isVerifying = false
                     verificationResult = .success("已验证：\(username)")
@@ -324,60 +319,6 @@ struct SettingsView: View {
                     HapticManager.notification(.error)
                 }
             }
-        }
-    }
-    
-    private func verifyGitHubToken(_ token: String) async throws -> String {
-        // 去除 token 两端的空格和换行符
-        let cleanToken = token.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        print("🔑 验证 Token，长度: \(cleanToken.count)，前缀: \(String(cleanToken.prefix(10)))...")
-        
-        guard let url = URL(string: "https://api.github.com/user") else {
-            throw URLError(.badURL)
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        // GitHub PAT 使用 "token xxx" 格式
-        request.setValue("token \(cleanToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/vnd.github.v3+json", forHTTPHeaderField: "Accept")
-        request.setValue("Swift_MarkdownEditor", forHTTPHeaderField: "User-Agent")
-        
-        // 设置超时
-        request.timeoutInterval = 30
-        
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            
-            guard let httpResponse = response as? HTTPURLResponse else {
-                print("❌ 响应类型错误")
-                throw URLError(.badServerResponse)
-            }
-            
-            print("🔐 Token 验证响应状态码: \(httpResponse.statusCode)")
-            
-            if httpResponse.statusCode == 200 {
-                struct GitHubUser: Decodable {
-                    let login: String
-                }
-                
-                let user = try JSONDecoder().decode(GitHubUser.self, from: data)
-                print("✅ 验证成功，用户名: \(user.login)")
-                return user.login
-            } else {
-                // 解析错误信息
-                if let errorString = String(data: data, encoding: .utf8) {
-                    print("❌ Token 验证错误响应: \(errorString)")
-                }
-                throw URLError(.userAuthenticationRequired)
-            }
-        } catch let error as URLError {
-            print("❌ 网络错误: \(error.localizedDescription)")
-            throw error
-        } catch {
-            print("❌ 其他错误: \(error.localizedDescription)")
-            throw error
         }
     }
 }

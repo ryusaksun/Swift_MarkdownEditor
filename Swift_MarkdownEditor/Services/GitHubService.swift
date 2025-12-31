@@ -25,11 +25,18 @@ actor GitHubService {
     
     // MARK: - API 请求
     
-    /// 发送 GitHub API 请求
-    private func request<T: Decodable>(
+    /// 发送 GitHub API 请求（通用方法）
+    /// - Parameters:
+    ///   - endpoint: API 端点（如 "/repos/owner/repo/contents/path"）
+    ///   - method: HTTP 方法
+    ///   - body: 请求体数据
+    ///   - acceptRaw: 是否请求原始内容（用于获取文件原始内容）
+    /// - Returns: 解码后的响应对象
+    func request<T: Decodable>(
         endpoint: String,
         method: String = "GET",
-        body: Data? = nil
+        body: Data? = nil,
+        acceptRaw: Bool = false
     ) async throws -> T {
         let token = AppConfig.githubToken
         print("🔑 Token 前10位: \(String(token.prefix(10)))...")
@@ -47,8 +54,9 @@ actor GitHubService {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("token \(token)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/vnd.github.v3+json", forHTTPHeaderField: "Accept")
+        request.setValue(acceptRaw ? "application/vnd.github.v3.raw" : "application/vnd.github.v3+json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 30
         
         if let body = body {
             request.httpBody = body
@@ -79,6 +87,78 @@ actor GitHubService {
             print("🌐 网络错误: \(error.localizedDescription)")
             throw error
         }
+    }
+    
+    /// 获取原始文件内容（用于 Essay 等文本文件）
+    /// - Parameter endpoint: API 端点
+    /// - Returns: 文件原始内容字符串
+    func fetchRawContent(endpoint: String) async throws -> String {
+        let token = AppConfig.githubToken
+        
+        guard AppConfig.isGitHubConfigured else {
+            throw GitHubError.notConfigured
+        }
+        
+        guard let url = URL(string: "\(baseURL)\(endpoint)") else {
+            throw GitHubError.invalidURL
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("token \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/vnd.github.v3.raw", forHTTPHeaderField: "Accept")
+        request.timeoutInterval = 30
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw GitHubError.invalidResponse
+        }
+        
+        guard httpResponse.statusCode == 200 else {
+            throw GitHubError.apiError(code: httpResponse.statusCode, message: "获取内容失败")
+        }
+        
+        guard let content = String(data: data, encoding: .utf8) else {
+            throw GitHubError.invalidContent
+        }
+        
+        return content
+    }
+    
+    /// 验证 GitHub Token 有效性
+    /// - Parameter token: 要验证的 Token
+    /// - Returns: 用户名
+    func verifyToken(_ token: String) async throws -> String {
+        let cleanToken = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        guard let url = URL(string: "\(baseURL)/user") else {
+            throw GitHubError.invalidURL
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("token \(cleanToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/vnd.github.v3+json", forHTTPHeaderField: "Accept")
+        request.setValue("Swift_MarkdownEditor", forHTTPHeaderField: "User-Agent")
+        request.timeoutInterval = 30
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw GitHubError.invalidResponse
+        }
+        
+        guard httpResponse.statusCode == 200 else {
+            throw GitHubError.apiError(code: httpResponse.statusCode, message: "Token 无效或已过期")
+        }
+        
+        struct GitHubUser: Decodable {
+            let login: String
+        }
+        
+        let user = try JSONDecoder().decode(GitHubUser.self, from: data)
+        return user.login
     }
     
     // MARK: - 文件操作

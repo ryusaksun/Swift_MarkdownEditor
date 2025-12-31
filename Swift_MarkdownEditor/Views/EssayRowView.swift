@@ -96,6 +96,7 @@ struct CachedAsyncImage: View {
 /// Essay 时间轴行视图 - 完整展示模式
 struct EssayRowView: View {
     let essay: Essay
+    let isFirst: Bool
     let isLast: Bool
     
     // 时间轴样式常量
@@ -112,24 +113,25 @@ struct EssayRowView: View {
             // 右侧内容区
             contentArea
         }
+        .padding(.bottom, 32) // 增大每篇之间的间隔
     }
     
-    // MARK: - 时间轴装饰（连续垂直线）
+    // MARK: - 时间轴装饰
     
     private var timelineDecoration: some View {
-        ZStack(alignment: .top) {
-            // 垂直连接线（贯穿整个区域）
+        VStack(spacing: 0) {
+            // 节点圆点（顶部对齐元数据行）
+            Circle()
+                .fill(timelineColor)
+                .frame(width: dotSize, height: dotSize)
+            
+            // 垂直连接线（非最后一条时显示）
             if !isLast {
                 Rectangle()
                     .fill(timelineColor)
                     .frame(width: lineWidth)
+                    .frame(maxHeight: .infinity)
             }
-            
-            // 节点圆点（在顶部）
-            Circle()
-                .fill(timelineColor)
-                .frame(width: dotSize, height: dotSize)
-                .padding(.top, 6)
         }
         .frame(width: timelineWidth)
     }
@@ -138,8 +140,9 @@ struct EssayRowView: View {
     
     private var contentArea: some View {
         VStack(alignment: .leading, spacing: 10) {
-            // 元数据行（作者 + 日期）
+            // 元数据行（作者 + 日期）- 与圆点顶部对齐
             metadataRow
+                .offset(y: -2) // 微调使文字基线与圆点中心对齐
             
             // 标题（如果有）
             if let title = essay.title, !title.isEmpty {
@@ -161,7 +164,6 @@ struct EssayRowView: View {
                 CachedAsyncImage(url: imageURL)
             }
         }
-        .padding(.vertical, 16)
     }
     
     // MARK: - 元数据行
@@ -211,22 +213,24 @@ extension Essay {
             EssayRowView(
                 essay: Essay(
                     fileName: "test1.md",
-                    title: nil,
+                    title: "记录这一刻",
                     pubDate: Date(),
                     content: "![image](https://cdn.jsdelivr.net/gh/SUNSIR007/picx-images-hosting@master/images/2025/12/img.jpg)",
                     rawContent: ""
                 ),
+                isFirst: true,
                 isLast: false
             )
             
             EssayRowView(
                 essay: Essay(
                     fileName: "test2.md",
-                    title: "这是一个标题",
+                    title: nil,
                     pubDate: Date().addingTimeInterval(-86400),
-                    content: "第二条随笔的内容，这里有很多文字。",
+                    content: "音乐鉴赏测试完了，终于可以静下心来好好听这些古典乐了",
                     rawContent: ""
                 ),
+                isFirst: false,
                 isLast: true
             )
         }

@@ -61,6 +61,7 @@ struct EssaysListView: View {
                 ForEach(Array(viewModel.essays.enumerated()), id: \.element.id) { index, essay in
                     EssayRowView(
                         essay: essay,
+                        isFirst: index == 0,
                         isLast: index == viewModel.essays.count - 1
                     )
                 }

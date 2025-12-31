@@ -7,7 +7,93 @@
 
 import SwiftUI
 
-/// Essay 时间轴行视图 - 复刻网页 UI
+/// 图片缓存管理器
+class ImageCache {
+    static let shared = ImageCache()
+    private var cache = NSCache<NSString, UIImage>()
+    
+    private init() {
+        cache.countLimit = 100
+        cache.totalCostLimit = 50 * 1024 * 1024 // 50MB
+    }
+    
+    func get(forKey key: String) -> UIImage? {
+        return cache.object(forKey: key as NSString)
+    }
+    
+    func set(_ image: UIImage, forKey key: String) {
+        cache.setObject(image, forKey: key as NSString)
+    }
+}
+
+/// 带缓存的网络图片视图
+struct CachedAsyncImage: View {
+    let url: URL?
+    @State private var image: UIImage?
+    @State private var isLoading = true
+    
+    var body: some View {
+        Group {
+            if let image = image {
+                Image(uiImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(maxWidth: .infinity)
+                    .cornerRadius(8)
+            } else if isLoading {
+                ProgressView()
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 100)
+            } else {
+                EmptyView()
+            }
+        }
+        .onAppear {
+            loadImage()
+        }
+    }
+    
+    private func loadImage() {
+        guard let url = url else {
+            isLoading = false
+            return
+        }
+        
+        let cacheKey = url.absoluteString
+        
+        // 先检查缓存
+        if let cachedImage = ImageCache.shared.get(forKey: cacheKey) {
+            self.image = cachedImage
+            self.isLoading = false
+            return
+        }
+        
+        // 从网络加载
+        Task {
+            do {
+                let (data, _) = try await URLSession.shared.data(from: url)
+                if let uiImage = UIImage(data: data) {
+                    // 存入缓存
+                    ImageCache.shared.set(uiImage, forKey: cacheKey)
+                    await MainActor.run {
+                        self.image = uiImage
+                        self.isLoading = false
+                    }
+                } else {
+                    await MainActor.run {
+                        self.isLoading = false
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    self.isLoading = false
+                }
+            }
+        }
+    }
+}
+
+/// Essay 时间轴行视图 - 完整展示模式
 struct EssayRowView: View {
     let essay: Essay
     let isLast: Bool
@@ -37,7 +123,6 @@ struct EssayRowView: View {
                 Rectangle()
                     .fill(timelineColor)
                     .frame(width: lineWidth)
-                    .offset(x: (timelineWidth - lineWidth) / 2 - timelineWidth / 2)
             }
             
             // 节点圆点（在顶部）
@@ -47,7 +132,6 @@ struct EssayRowView: View {
                 .padding(.top, 6)
         }
         .frame(width: timelineWidth)
-        .frame(maxHeight: .infinity, alignment: .top)
     }
     
     // MARK: - 内容区
@@ -64,36 +148,17 @@ struct EssayRowView: View {
                     .foregroundColor(.white)
             }
             
-            // 图片预览（如果有）
-            if let imageURL = essay.firstImageURL {
-                AsyncImage(url: imageURL) { phase in
-                    switch phase {
-                    case .empty:
-                        ProgressView()
-                            .frame(height: 150)
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 180)
-                            .clipped()
-                            .cornerRadius(8)
-                    case .failure:
-                        EmptyView()
-                    @unknown default:
-                        EmptyView()
-                    }
-                }
-            }
-            
-            // 正文预览（如果有文字内容且不只是图片）
+            // 完整正文内容
             if essay.preview != "（图片）" {
                 Text(essay.preview)
                     .font(.body)
                     .foregroundColor(.white)
-                    .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+            
+            // 完整尺寸图片（显示所有图片）
+            ForEach(essay.allImageURLs, id: \.absoluteString) { imageURL in
+                CachedAsyncImage(url: imageURL)
             }
         }
         .padding(.vertical, 16)
@@ -124,6 +189,20 @@ extension Essay {
         formatter.locale = Locale(identifier: "zh_CN")
         return formatter.string(from: pubDate)
     }
+    
+    /// 提取内容中的所有图片 URL
+    var allImageURLs: [URL] {
+        let pattern = #"!\[.*?\]\((.*?)\)"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else {
+            return []
+        }
+        
+        let matches = regex.matches(in: content, range: NSRange(content.startIndex..., in: content))
+        return matches.compactMap { match in
+            guard let range = Range(match.range(at: 1), in: content) else { return nil }
+            return URL(string: String(content[range]))
+        }
+    }
 }
 
 #Preview {
@@ -134,7 +213,7 @@ extension Essay {
                     fileName: "test1.md",
                     title: nil,
                     pubDate: Date(),
-                    content: "![image](https://example.com/image.jpg)",
+                    content: "![image](https://cdn.jsdelivr.net/gh/SUNSIR007/picx-images-hosting@master/images/2025/12/img.jpg)",
                     rawContent: ""
                 ),
                 isLast: false
@@ -145,18 +224,7 @@ extension Essay {
                     fileName: "test2.md",
                     title: "这是一个标题",
                     pubDate: Date().addingTimeInterval(-86400),
-                    content: "第二条随笔的内容。",
-                    rawContent: ""
-                ),
-                isLast: false
-            )
-            
-            EssayRowView(
-                essay: Essay(
-                    fileName: "test3.md",
-                    title: nil,
-                    pubDate: Date().addingTimeInterval(-172800),
-                    content: "最后一条随笔。",
+                    content: "第二条随笔的内容，这里有很多文字。",
                     rawContent: ""
                 ),
                 isLast: true

@@ -7,10 +7,9 @@
 
 import SwiftUI
 
-/// Essays 列表视图 - 时间轴风格
+/// Essays 列表视图 - 时间轴风格，完整展示模式
 struct EssaysListView: View {
     @StateObject private var viewModel = EssayViewModel()
-    @State private var selectedEssay: Essay?
     
     var body: some View {
         NavigationStack {
@@ -47,9 +46,6 @@ struct EssaysListView: View {
                     .disabled(viewModel.isRefreshing)
                 }
             }
-            .navigationDestination(item: $selectedEssay) { essay in
-                EssayDetailView(essay: essay)
-            }
         }
         .preferredColorScheme(.dark)
         .task {
@@ -57,21 +53,16 @@ struct EssaysListView: View {
         }
     }
     
-    // MARK: - 时间轴列表
+    // MARK: - 时间轴列表（完整展示，无点击跳转）
     
     private var essaysTimeline: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(viewModel.essays.enumerated()), id: \.element.id) { index, essay in
-                    Button {
-                        selectedEssay = essay
-                    } label: {
-                        EssayRowView(
-                            essay: essay,
-                            isLast: index == viewModel.essays.count - 1
-                        )
-                    }
-                    .buttonStyle(.plain)
+                    EssayRowView(
+                        essay: essay,
+                        isLast: index == viewModel.essays.count - 1
+                    )
                 }
             }
             .padding(.horizontal, 16)

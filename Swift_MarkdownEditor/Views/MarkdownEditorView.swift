@@ -128,7 +128,7 @@ struct MarkdownEditorView: View {
 }
 
 #Preview {
-    MarkdownEditorView(text: .constant("# Hello\n\n![image](https://cdn.jsdelivr.net/gh/SUNSIR007/picx-images-hosting@master/images/2025/12/img-test.jpg)"))
+    MarkdownEditorView(text: .constant("# Hello\n\n![image](https://cdn.jsdelivr.net/gh/ryusaksun/picx-images-hosting@master/images/2025/12/img-test.jpg)"))
         .preferredColorScheme(.dark)
         .background(Color.bgBody)
         .padding()

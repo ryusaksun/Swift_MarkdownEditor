@@ -217,7 +217,7 @@ extension Essay {
                     fileName: "test1.md",
                     title: "记录这一刻",
                     pubDate: Date(),
-                    content: "![image](https://cdn.jsdelivr.net/gh/SUNSIR007/picx-images-hosting@master/images/2025/12/img.jpg)",
+                    content: "![image](https://cdn.jsdelivr.net/gh/ryusaksun/picx-images-hosting@master/images/2025/12/img.jpg)",
                     rawContent: ""
                 ),
                 isLast: false

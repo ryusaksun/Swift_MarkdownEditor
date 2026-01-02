@@ -414,7 +414,7 @@ struct SettingsView: View {
                 
                 // GitHub 链接
                 Button {
-                    if let url = URL(string: "https://github.com/SUNSIR007/Swift_MarkdownEditor") {
+                    if let url = URL(string: "https://github.com/ryusaksun/Swift_MarkdownEditor") {
                         UIApplication.shared.open(url)
                     }
                 } label: {
@@ -558,7 +558,7 @@ struct SettingsView: View {
     private func saveRepoConfig() {
         HapticManager.impact(.light)
         AppConfig.saveRepoConfig(
-            owner: githubOwner.isEmpty ? "SUNSIR007" : githubOwner,
+            owner: githubOwner.isEmpty ? "ryusaksun" : githubOwner,
             repo: githubRepo.isEmpty ? "astro_blog" : githubRepo,
             branch: githubBranch.isEmpty ? "main" : githubBranch
         )
@@ -578,7 +578,7 @@ struct SettingsView: View {
         HapticManager.impact(.medium)
         AppConfig.resetToDefaults()
         // 重新加载默认值
-        githubOwner = "SUNSIR007"
+        githubOwner = "ryusaksun"
         githubRepo = "astro_blog"
         githubBranch = "main"
         imageRepo = "picx-images-hosting"

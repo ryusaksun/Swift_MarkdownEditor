@@ -15,12 +15,12 @@ final class AppConfigTests: XCTestCase {
         let url = AppConfig.generateImageCDNUrl(path: path)
         
         // 基于当前默认配置 (jsdelivr)
-        // githubOwner = "SUNSIR007"
+        // githubOwner = "ryusaksun"
         // imageRepo = "picx-images-hosting"
         // imageBranch = "master"
         
         // 预期格式: "https://cdn.jsdelivr.net/gh/{owner}/{repo}@{branch}/{path}"
-        let expectedUrl = "https://cdn.jsdelivr.net/gh/SUNSIR007/picx-images-hosting@master/test-image.jpg"
+        let expectedUrl = "https://cdn.jsdelivr.net/gh/ryusaksun/picx-images-hosting@master/test-image.jpg"
         
         XCTAssertEqual(url, expectedUrl)
     }

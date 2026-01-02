@@ -38,7 +38,7 @@
 1. **克隆仓库**
 
    ```bash
-   git clone git@github.com:SUNSIR007/Swift_MarkdownEditor.git
+   git clone git@github.com:ryusaksun/Swift_MarkdownEditor.git
    cd Swift_MarkdownEditor
    ```
 
